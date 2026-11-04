@@ -41,6 +41,23 @@ jobs:
           git -C zed apply --check ../zed-arabic.patch
           git -C zed apply ../zed-arabic.patch
 
+      - name: Fix Visual Studio discovery for GitHub runner
+        shell: pwsh
+        run: |
+          $scriptPath = "zed/script/bundle-windows.ps1"
+          $source = Get-Content $scriptPath -Raw
+          $oldLine = '& "C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\Tools\Launch-VsDevShell.ps1" -Arch (Get-VSArch -Arch $Architecture) -HostArch (Get-VSArch -Arch $OSArchitecture)'
+          $newLine = '$vswhere = "C:\Program Files (x86)\Microsoft Visual Studio\Installer\vswhere.exe"' + "`n" +
+            'if (-not (Test-Path $vswhere)) { throw "Visual Studio Installer vswhere.exe was not found" }' + "`n" +
+            '$vsInstall = & $vswhere -latest -products * -property installationPath' + "`n" +
+            'if (-not $vsInstall) { throw "Visual Studio 2022 installation was not found" }' + "`n" +
+            '$vsDevShell = Join-Path $vsInstall "Common7\Tools\Launch-VsDevShell.ps1"' + "`n" +
+            'if (-not (Test-Path $vsDevShell)) { throw "Launch-VsDevShell.ps1 was not found at $vsDevShell" }' + "`n" +
+            '& $vsDevShell -Arch (Get-VSArch -Arch $Architecture) -HostArch (Get-VSArch -Arch $OSArchitecture)'
+          if (-not $source.Contains($oldLine)) { throw "Expected Visual Studio launch line was not found in bundle-windows.ps1" }
+          $source = $source.Replace($oldLine, $newLine)
+          Set-Content -Path $scriptPath -Value $source -Encoding utf8
+
       - name: Build official Windows installer
         shell: pwsh
         working-directory: zed
