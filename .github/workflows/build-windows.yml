@@ -41,6 +41,16 @@ jobs:
           git -C zed apply --check ../zed-arabic.patch
           git -C zed apply ../zed-arabic.patch
 
+          # Keep the VS Code settings importer compatible with the added UI language setting.
+          $importPath = "zed/crates/settings/src/vscode_import.rs"
+          $importSource = Get-Content $importPath -Raw
+          $themeInitializer = '            theme: Box::new(self.theme_settings_content()),'
+          if (-not $importSource.Contains($themeInitializer)) { throw "Expected SettingsContent theme initializer was not found in vscode_import.rs" }
+          if (-not $importSource.Contains("ui_language:")) {
+            $importSource = $importSource.Replace($themeInitializer, $themeInitializer + "`n            ui_language: None,")
+            Set-Content -Path $importPath -Value $importSource -Encoding utf8
+          }
+
       - name: Fix Visual Studio discovery for GitHub runner
         shell: pwsh
         run: |
