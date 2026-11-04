@@ -5,12 +5,16 @@ on:
   push:
     branches: [main]
 
+concurrency:
+  group: zed-arabic-windows-${{ github.ref }}
+  cancel-in-progress: true
+
 permissions:
   contents: read
 
 jobs:
   build-windows-x64:
-    name: Build Zed Arabic preview
+    name: Build Zed Arabic installer
     runs-on: windows-2022
     timeout-minutes: 360
     steps:
@@ -24,7 +28,7 @@ jobs:
           ref: e21ff1b368b074586e4dae0d9bbf15d5dd8a1476
           path: zed
 
-      - name: Decode and apply Arabic patch
+      - name: Decode and apply Arabic source patch
         shell: pwsh
         run: |
           $encoded = (Get-Content "patches/zed-arabic.patch.gz.b64" -Raw).Trim()
@@ -37,32 +41,17 @@ jobs:
           git -C zed apply --check ../zed-arabic.patch
           git -C zed apply ../zed-arabic.patch
 
-      - name: Set up Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: 24
-
-      - name: Install Windows Rust target
-        shell: pwsh
-        run: rustup target add x86_64-pc-windows-msvc
-
-      - name: Cache Rust dependencies
-        uses: Swatinem/rust-cache@v2
-        with:
-          workspaces: |
-            zed -> zed/target
-
-      - name: Build Zed executable
+      - name: Build official Windows installer
         shell: pwsh
         working-directory: zed
         env:
           CARGO_INCREMENTAL: 0
-        run: cargo build --release --package zed --target x86_64-pc-windows-msvc
+        run: ./script/bundle-windows.ps1 -Architecture x86_64
 
-      - name: Upload preview executable
+      - name: Upload Windows installer
         uses: actions/upload-artifact@v4
         with:
-          name: zed-arabic-preview-x64
-          path: zed/target/x86_64-pc-windows-msvc/release/zed.exe
+          name: zed-arabic-preview-windows-x64-installer
+          path: zed/target/Zed-x86_64.exe
           if-no-files-found: error
           retention-days: 14
